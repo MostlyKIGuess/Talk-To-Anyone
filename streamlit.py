@@ -1,8 +1,8 @@
 import streamlit as st
 import os
 from dotenv import load_dotenv
-import google.generativeai as genai
-from google.generativeai import types
+from google import genai
+from google.genai import types
 
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -12,7 +12,7 @@ if not GEMINI_API_KEY:
     st.stop()
 
 try:
-    genai.configure(api_key=GEMINI_API_KEY)
+    client = genai.Client(api_key=GEMINI_API_KEY)
 except Exception as e:
     st.error(f"Failed to configure Gemini API: {e}. Ensure your API key is correct and the google-generativeai package is installed.")
     st.stop()
@@ -45,33 +45,32 @@ if not st.session_state.start_chat:
     if st.button("✨ Generate Persona", disabled=not persona_name_input):
         with st.spinner(f"Generating persona description for {persona_name_input}..."):
             try:
-                persona_gen_model = genai.GenerativeModel("gemini-2.0-flash")
-                
-                prompt_for_persona_generation = f"""
-                You are a helpful assistant that creates detailed system prompts for a chatbot.
-                The user will tell you who they want the chatbot to be.
-                You need to generate a long and detailed system prompt for that persona.
-                This system prompt will be used to instruct another AI to act as that persona.
-                Make it engaging and provide clear instructions on behavior, tone, knowledge, and any quirks. It can be a person, thing, object anything, personalities, or even fictional characters.
-                You need to personify everything basically.
+                response = client.models.generate_content(
+                    model="gemini-2.0-flash",
+                    contents=[f"""
+                    You are a helpful assistant that creates detailed system prompts for a chatbot.
+                    The user will tell you who they want the chatbot to be.
+                    You need to generate a long and detailed system prompt for that persona.
+                    This system prompt will be used to instruct another AI to act as that persona.
+                    Make it engaging and provide clear instructions on behavior, tone, knowledge, and any quirks. It can be a person, thing, object anything, personalities, or even fictional characters.
+                    You need to personify everything basically.
 
-                Example:
-                User's request: Albert Einstein
-                Generated System Prompt:
-                You are Albert Einstein, the world-renowned theoretical physicist who developed the theory of relativity.
-                You were born in Germany in 1879 and passed away in 1955.
-                Speak with intellectual curiosity and a gentle, thoughtful tone, occasionally infused with humor.
-                You should be able to discuss your theories (Special and General Relativity, photoelectric effect, E=mc^2) in an accessible way,
-                but also ponder on philosophy, music (you play the violin!), and the state of the world.
-                Use analogies to explain complex concepts. You are a pacifist and a humanist.
-                Address the user respectfully and encourage their questions.
-                Avoid modern slang or knowledge of events after your passing.
-                Maintain a humble yet confident demeanor.
-                ---
-                Now, generate a system prompt for: {persona_name_input}
-                """
-                
-                response = persona_gen_model.generate_content(prompt_for_persona_generation)
+                    Example:
+                    User's request: Albert Einstein
+                    Generated System Prompt:
+                    You are Albert Einstein, the world-renowned theoretical physicist who developed the theory of relativity.
+                    You were born in Germany in 1879 and passed away in 1955.
+                    Speak with intellectual curiosity and a gentle, thoughtful tone, occasionally infused with humor.
+                    You should be able to discuss your theories (Special and General Relativity, photoelectric effect, E=mc^2) in an accessible way,
+                    but also ponder on philosophy, music (you play the violin!), and the state of the world.
+                    Use analogies to explain complex concepts. You are a pacifist and a humanist.
+                    Address the user respectfully and encourage their questions.
+                    Avoid modern slang or knowledge of events after your passing.
+                    Maintain a humble yet confident demeanor.
+                    ---
+                    Now, generate a system prompt for: {persona_name_input}
+                    """]
+                )
                 st.session_state.persona_description_generated = response.text
             except Exception as e:
                 st.error(f"Error generating persona description: {e}")
@@ -85,13 +84,13 @@ if not st.session_state.start_chat:
         if st.button(f"👍 Yes, I want to talk to {st.session_state.persona_input_name}!", key="confirm_persona"):
             st.session_state.start_chat = True
             st.session_state.messages_display = []
-            
             try:
-                chat_model = genai.GenerativeModel(
-                    model_name="gemini-1.5-flash-latest",
-                    system_instruction=st.session_state.persona_description_generated
+                st.session_state.chat_session = client.chats.create(
+                    model="gemini-2.0-flash",
+                    config=types.GenerateContentConfig(
+                        system_instruction=st.session_state.persona_description_generated
+                    )
                 )
-                st.session_state.chat_session = chat_model.start_chat(history=[])
             except Exception as e:
                 st.error(f"Failed to initialize chat model: {e}")
                 st.session_state.start_chat = False
@@ -116,11 +115,8 @@ if st.session_state.start_chat and st.session_state.persona_description_generate
             try:
                 response = st.session_state.chat_session.send_message(user_prompt)
                 model_response_text = response.text
-                
                 st.session_state.messages_display.append({"role": st.session_state.persona_input_name, "text": model_response_text})
-                
                 st.rerun()
-
             except Exception as e:
                 st.error(f"Error getting response from Gemini: {e}")
                 if st.session_state.messages_display and st.session_state.messages_display[-1]["text"] == user_prompt:
