@@ -85,10 +85,17 @@ if not st.session_state.start_chat:
             st.session_state.start_chat = True
             st.session_state.messages_display = []
             try:
+                #  chat with Google Search as a tool for grounding
+                google_search_tool = types.Tool(
+                    google_search=types.GoogleSearch()
+                )
+                
                 st.session_state.chat_session = client.chats.create(
                     model="gemini-2.0-flash",
                     config=types.GenerateContentConfig(
-                        system_instruction=st.session_state.persona_description_generated
+                        system_instruction=st.session_state.persona_description_generated,
+                        tools=[google_search_tool],
+                        response_modalities=["TEXT"]
                     )
                 )
             except Exception as e:
@@ -102,6 +109,13 @@ if st.session_state.start_chat and st.session_state.persona_description_generate
     for msg in st.session_state.messages_display:
         with st.chat_message(msg["role"]):
             st.markdown(msg["text"])
+            
+            if "sources" in msg:
+                st.markdown("#### Sources:")
+                for source in msg["sources"]:
+                    st.markdown(f"- [{source['title']}]({source['uri']})")
+            
+        
 
     user_prompt = st.chat_input(f"Talk to {st.session_state.persona_input_name}...")
 
@@ -115,7 +129,33 @@ if st.session_state.start_chat and st.session_state.persona_description_generate
             try:
                 response = st.session_state.chat_session.send_message(user_prompt)
                 model_response_text = response.text
-                st.session_state.messages_display.append({"role": st.session_state.persona_input_name, "text": model_response_text})
+                
+                message = {
+                    "role": st.session_state.persona_input_name, 
+                    "text": model_response_text
+                }
+                
+                if hasattr(response.candidates[0], 'grounding_metadata') and response.candidates[0].grounding_metadata:
+                    # Get search suggestions if available, will see this later
+                    # TODO: Add a check for the type of search suggestions
+                    # to ensure they are relevant to the user query
+                    if hasattr(response.candidates[0].grounding_metadata, 'search_entry_point'):
+                        search_suggestions = response.candidates[0].grounding_metadata.search_entry_point.rendered_content
+                        message["search_suggestions"] = search_suggestions
+                    
+                    # Get sources if available
+                    if hasattr(response.candidates[0].grounding_metadata, 'grounding_chunks'):
+                        sources = []
+                        for chunk in response.candidates[0].grounding_metadata.grounding_chunks:
+                            if hasattr(chunk, 'web'):
+                                sources.append({
+                                    "uri": chunk.web.uri,
+                                    "title": chunk.web.title
+                                })
+                        if sources:
+                            message["sources"] = sources
+                
+                st.session_state.messages_display.append(message)
                 st.rerun()
             except Exception as e:
                 st.error(f"Error getting response from Gemini: {e}")
