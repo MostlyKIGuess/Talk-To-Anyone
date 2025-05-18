@@ -139,15 +139,16 @@ if st.session_state.start_chat and st.session_state.persona_description_generate
                     # Get search suggestions if available, will see this later
                     # TODO: Add a check for the type of search suggestions
                     # to ensure they are relevant to the user query
-                    if hasattr(response.candidates[0].grounding_metadata, 'search_entry_point'):
-                        search_suggestions = response.candidates[0].grounding_metadata.search_entry_point.rendered_content
-                        message["search_suggestions"] = search_suggestions
+                    # if hasattr(response.candidates[0].grounding_metadata, 'search_entry_point'):
+                    #     search_suggestions = response.candidates[0].grounding_metadata.search_entry_point.rendered_content
+                    #     message["search_suggestions"] = search_suggestions
                     
                     # Get sources if available
-                    if hasattr(response.candidates[0].grounding_metadata, 'grounding_chunks'):
+                    if hasattr(response.candidates[0].grounding_metadata, 'grounding_chunks') and \
+                       response.candidates[0].grounding_metadata.grounding_chunks is not None: # Check if grounding_chunks is not None
                         sources = []
                         for chunk in response.candidates[0].grounding_metadata.grounding_chunks:
-                            if hasattr(chunk, 'web'):
+                            if hasattr(chunk, 'web') and chunk.web is not None: # Also good to check if chunk.web is not None
                                 sources.append({
                                     "uri": chunk.web.uri,
                                     "title": chunk.web.title
