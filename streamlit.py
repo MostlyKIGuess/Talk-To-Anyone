@@ -3,7 +3,6 @@ import os
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
-from google.genai.types import StopCandidateException
 
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -183,11 +182,7 @@ if st.session_state.start_chat and st.session_state.persona_description_generate
                 
                 st.session_state.messages_display.append(message)
                 st.rerun()
-            except StopCandidateException as e: 
-                st.error(f"Response generation stopped: {e}")
-                if st.session_state.messages_display and st.session_state.messages_display[-1]["text"] == user_prompt:
-                    st.session_state.messages_display.pop()
-            except Exception as e:
+            except Exception as e: 
                 st.error(f"Error getting response from Gemini: {e}")
                 if st.session_state.messages_display and st.session_state.messages_display[-1]["text"] == user_prompt:
                     st.session_state.messages_display.pop()
