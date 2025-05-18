@@ -3,6 +3,7 @@ import os
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+from google.generativeai.types import StopCandidateException
 
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -128,40 +129,69 @@ if st.session_state.start_chat and st.session_state.persona_description_generate
         with st.spinner(f"{st.session_state.persona_input_name} is thinking..."):
             try:
                 response = st.session_state.chat_session.send_message(user_prompt)
-                model_response_text = response.text
+
+                if response is None:
+                    st.error("Received no response from Gemini.")
+                    if st.session_state.messages_display and st.session_state.messages_display[-1]["text"] == user_prompt:
+                        st.session_state.messages_display.pop()
+                    st.rerun()
+
+                model_response_text = ""
+                if hasattr(response, 'text') and response.text is not None:
+                    model_response_text = response.text
+                else:
+                    st.warning("Gemini response did not contain text.")
                 
                 message = {
                     "role": st.session_state.persona_input_name, 
                     "text": model_response_text
                 }
                 
-                if hasattr(response.candidates[0], 'grounding_metadata') and response.candidates[0].grounding_metadata:
-                    # Get search suggestions if available, will see this later
-                    # TODO: Add a check for the type of search suggestions
-                    # to ensure they are relevant to the user query
-                    # if hasattr(response.candidates[0].grounding_metadata, 'search_entry_point'):
-                    #     search_suggestions = response.candidates[0].grounding_metadata.search_entry_point.rendered_content
-                    #     message["search_suggestions"] = search_suggestions
+                candidate = None
+                if hasattr(response, 'candidates') and response.candidates:
+                    candidate = response.candidates[0]
+
+                grounding_metadata = None
+                if candidate and hasattr(candidate, 'grounding_metadata') and candidate.grounding_metadata:
+                    grounding_metadata = candidate.grounding_metadata
+                
+                # Get search suggestions if available, will see this later
+                # TODO: Add a check for the type of search suggestions
+                # to ensure they are relevant to the user query
+                # if grounding_metadata and hasattr(grounding_metadata, 'search_entry_point'):
+                #     search_suggestions = grounding_metadata.search_entry_point.rendered_content
+                #     message["search_suggestions"] = search_suggestions
                     
-                    # Get sources if available
-                    if hasattr(response.candidates[0].grounding_metadata, 'grounding_chunks') and \
-                       response.candidates[0].grounding_metadata.grounding_chunks is not None: # Check if grounding_chunks is not None
+                # Get sources if available
+                if grounding_metadata and hasattr(grounding_metadata, 'grounding_chunks'):
+                    grounding_chunks_data = grounding_metadata.grounding_chunks
+                    
+                    if grounding_chunks_data is not None: # Check if grounding_chunks_data is not None before iterating
                         sources = []
-                        for chunk in response.candidates[0].grounding_metadata.grounding_chunks:
-                            if hasattr(chunk, 'web') and chunk.web is not None: # Also good to check if chunk.web is not None
-                                sources.append({
-                                    "uri": chunk.web.uri,
-                                    "title": chunk.web.title
-                                })
+                        for chunk in grounding_chunks_data:
+                            if chunk and hasattr(chunk, 'web') and chunk.web:
+                                web_info = chunk.web
+                                uri = getattr(web_info, 'uri', None)
+                                title = getattr(web_info, 'title', None)
+                                if uri: 
+                                    sources.append({
+                                        "uri": uri,
+                                        "title": title if title else "Source" 
+                                    })
                         if sources:
                             message["sources"] = sources
                 
                 st.session_state.messages_display.append(message)
                 st.rerun()
+            except StopCandidateException as e: 
+                st.error(f"Response generation stopped: {e}")
+                if st.session_state.messages_display and st.session_state.messages_display[-1]["text"] == user_prompt:
+                    st.session_state.messages_display.pop()
             except Exception as e:
                 st.error(f"Error getting response from Gemini: {e}")
                 if st.session_state.messages_display and st.session_state.messages_display[-1]["text"] == user_prompt:
                     st.session_state.messages_display.pop()
+
 
     if st.button("⬅️ Talk to someone else"):
         st.session_state.persona_description_generated = None
