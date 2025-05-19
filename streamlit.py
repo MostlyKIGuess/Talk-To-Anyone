@@ -165,6 +165,8 @@ if "developer_mode" not in st.session_state:
     st.session_state.developer_mode = False
 if "chat_mode" not in st.session_state:
     st.session_state.chat_mode = "Single Persona Chat"
+if "all_sources" not in st.session_state:
+    st.session_state.all_sources = []
 
 # Persona 1
 if "persona_1_name" not in st.session_state:
@@ -217,6 +219,7 @@ if current_chat_mode_selection != st.session_state.chat_mode:
     st.session_state.action_buttons_visible = False
     st.session_state.last_actor = None
     st.session_state.last_message_text = None
+    st.session_state.all_sources = [] 
     st.rerun()
 
 
@@ -261,6 +264,7 @@ if not st.session_state.start_chat:
                 if st.session_state.persona_1_session:
                     st.session_state.start_chat = True
                     st.session_state.messages_display = []
+                    st.session_state.all_sources = []
                     st.rerun()
                 else:
                     st.error("Failed to initialize chat session for persona.")
@@ -344,6 +348,7 @@ if not st.session_state.start_chat:
                 ):
                     st.session_state.start_chat = True
                     st.session_state.messages_display = []
+                    st.session_state.all_sources = []
                     st.rerun()
                 else:
                     st.error(
@@ -351,25 +356,42 @@ if not st.session_state.start_chat:
                     )
 
 if st.session_state.start_chat:
-    if st.session_state.chat_mode == "Single Persona Chat":
-        _, right_col = st.columns([3, 1])
-        with right_col:
-            st.markdown(f"**Chatting as: {st.session_state.persona_1_name}**")
-    else:
-        _, right_col = st.columns([3, 1])
-        with right_col:
-            st.markdown(f"**Persona Room: {st.session_state.persona_1_name} & {st.session_state.persona_2_name}**")
+    # source popover
+    header_left, header_right = st.columns([0.85, 0.15])
+
+    with header_left:
+        if st.session_state.chat_mode == "Single Persona Chat":
+            st.markdown(f"### Chatting with: {st.session_state.persona_1_name}")
+        else: 
+            st.markdown(f"### Persona Room: {st.session_state.persona_1_name} & {st.session_state.persona_2_name}")
+
+    with header_right:
+        with st.popover("📚 Sources", use_container_width=True):
+            # content popover
+            st.subheader("Collected Sources")
+            if st.session_state.all_sources:
+                sorted_sources = sorted(
+                    st.session_state.all_sources, 
+                    key=lambda s: (s.get('title') or s.get('uri', '')).lower()
+                )
+                for source_item in sorted_sources: 
+                    title = source_item.get('title') or source_item.get('uri', 'Source')
+                    uri = source_item.get('uri')
+                    if uri:
+                        st.markdown(f"- [{title}]({uri})")
+            else:
+                st.markdown("No sources collected yet.")
             
     for msg in st.session_state.messages_display:
         with st.chat_message(msg["role"]):
             st.markdown(msg["text"])
             if "sources" in msg and msg["sources"]:
-                st.markdown("--- \n*Sources:*")
-                for source in msg["sources"]:
-                    st.markdown(
-                        f"- [{source.get('title', 'Source')
-                              }]({source.get('uri')})"
-                    )
+                with st.expander("Sources for this message"): 
+                    for source in msg["sources"]:
+                        st.markdown(
+                            f"- [{source.get('title', 'Source')
+                                      }]({source.get('uri')})"
+                        )
 
     if st.session_state.chat_mode == "Single Persona Chat":
         if st.session_state.persona_1_session and st.session_state.persona_1_name:
@@ -406,6 +428,13 @@ if st.session_state.start_chat:
                                 else "No text in response."
                             )
                             sources = extract_sources_from_response(response)
+                            
+                            existing_uris = {s['uri'] for s in st.session_state.all_sources if 'uri' in s}
+                            for src in sources:
+                                if src.get('uri') and src['uri'] not in existing_uris:
+                                    st.session_state.all_sources.append(src)
+                                    existing_uris.add(src['uri'])
+                                    
                             message = {
                                 "role": st.session_state.persona_1_name,
                                 "text": model_response_text,
@@ -434,12 +463,6 @@ if st.session_state.start_chat:
             and st.session_state.persona_1_name
             and st.session_state.persona_2_name
         ):
-            st.subheader(
-                f"Persona Room: {st.session_state.persona_1_name} & {
-                    st.session_state.persona_2_name
-                }"
-            )
-
             user_prompt = st.chat_input(
                 "Your message for the room...", key="room_chat_input"
             )
@@ -479,6 +502,12 @@ if st.session_state.start_chat:
                                 sources = extract_sources_from_response(
                                     response)
 
+                            existing_uris = {s['uri'] for s in st.session_state.all_sources if 'uri' in s}
+                            for src in sources:
+                                if src.get('uri') and src['uri'] not in existing_uris:
+                                    st.session_state.all_sources.append(src)
+                                    existing_uris.add(src['uri'])
+
                             if model_text != "No text in response.":
                                 st.session_state.messages_display.append(
                                     {
@@ -493,8 +522,6 @@ if st.session_state.start_chat:
                                 st.warning(
                                     f"{persona_name} did not provide a text response."
                                 )
-                                # last_actor and last_message_text remain from the previous turn,
-                                # allowing the other persona or user to act based on that previous message.
                         except Exception as e:
                             st.error(f"Error from {persona_name}: {e}")
                         st.session_state.action_buttons_visible = True
@@ -555,6 +582,7 @@ if st.session_state.start_chat:
         else:
             st.warning(
                 "Chat sessions or persona names are missing for Persona Room.")
+            st.session_state.start_chat = False 
             st.rerun()
 
     if st.sidebar.button("⬅️ New Chat / Exit Room", key="exit_chat_btn"):
@@ -569,6 +597,7 @@ if st.session_state.start_chat:
         st.session_state.action_buttons_visible = False
         st.session_state.last_actor = None
         st.session_state.last_message_text = None
+        st.session_state.all_sources = [] 
         st.rerun()
 
 elif st.session_state.start_chat:
