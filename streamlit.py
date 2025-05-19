@@ -419,13 +419,6 @@ if st.session_state.start_chat:
                 st.session_state.last_message_text = user_prompt
                 st.session_state.action_buttons_visible = True
                 st.rerun()
-<<<<<<< HEAD
-            except Exception as e: 
-                st.error(f"Error getting response from Gemini: {e}")
-                if st.session_state.messages_display and st.session_state.messages_display[-1]["text"] == user_prompt:
-                    st.session_state.messages_display.pop()
-=======
->>>>>>> multiple
 
             if (
                 st.session_state.action_buttons_visible
