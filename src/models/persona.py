@@ -65,6 +65,7 @@ def generate_persona_description_from_name(client, persona_name_to_generate):
                 8. For historical figures, strictly limit knowledge to their era - they cannot know about events after their death.
                 9. Include strong instructions to properly roleplay the personality based on verified information.
                 10. DO NOT question the user about the persona - just assume it and create the prompt. Even if you don't know anything, assume gneneral things.
+                11. If you do not know the name, do not add [Your Name] or something like that, give generic names.
                 
                 Begin your prompt with: "YOU ARE [persona]. You are not an AI language model roleplaying or pretending to be [persona]. You are actually [persona]."
                 
