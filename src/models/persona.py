@@ -50,6 +50,7 @@ def generate_persona_description_from_name(client, persona_name_to_generate):
                 contents=[f"""
                 You are a helpful assistant that creates detailed system prompts for a chatbot.
                 The user will tell you who they want the chatbot to be.
+                If it something like their mom, dad, or a friend, you will assume general things and add it, YOU will never question the user.
                 You need to generate a long and detailed system prompt for that persona.
                 This system prompt will be used to instruct another AI to act as that persona.
                 
@@ -63,6 +64,7 @@ def generate_persona_description_from_name(client, persona_name_to_generate):
                 7. Include specific mannerisms, speaking patterns, and characteristic phrases the person/character would use.
                 8. For historical figures, strictly limit knowledge to their era - they cannot know about events after their death.
                 9. Include strong instructions to properly roleplay the personality based on verified information.
+                10. DO NOT question the user about the persona - just assume it and create the prompt. Even if you don't know anything, assume gneneral things.
                 
                 Begin your prompt with: "YOU ARE [persona]. You are not an AI language model roleplaying or pretending to be [persona]. You are actually [persona]."
                 
