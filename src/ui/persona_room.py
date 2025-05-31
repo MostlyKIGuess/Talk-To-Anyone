@@ -2,7 +2,13 @@
 Persona Room UI components for Talk-To-Anyone application.
 """
 import streamlit as st
-from ..models import generate_persona_description_from_name, initialize_chat_session, extract_sources_from_response
+from ..models import (
+    generate_persona_description_from_name, 
+    initialize_chat_session, 
+    extract_sources_from_response,
+    generate_single_voice_audio
+)
+from .voice_settings import render_persona_voice_config
 
 def render_persona_room_setup(client):
     """
@@ -73,6 +79,13 @@ def render_persona_room_setup(client):
             st.subheader("Generated Persona 2 Description:")
             st.markdown(st.session_state.persona_2_description)
 
+        # Voice configuration for both personas
+        col1, col2 = st.columns(2)
+        with col1:
+            render_persona_voice_config(1, st.session_state.persona_1_name, st.session_state.persona_1_description)
+        with col2:
+            render_persona_voice_config(2, st.session_state.persona_2_name, st.session_state.persona_2_description)
+
         if st.button(
             f"👍 Yes, let {st.session_state.persona_1_name} and {
                 st.session_state.persona_2_name
@@ -137,7 +150,7 @@ def handle_persona_room_interaction(client):
             cols = st.columns(2)
 
             def handle_persona_response(
-                persona_session, persona_name, responding_to_actor_name, prompt_text
+                persona_session, persona_name, responding_to_actor_name, prompt_text, persona_num
             ):
                 with st.spinner(f"{persona_name} is thinking..."):
                     try:
@@ -158,12 +171,25 @@ def handle_persona_room_interaction(client):
                                 st.session_state.all_sources.append(src)
                                 existing_uris.add(src['uri'])
 
+                        audio_data = None
+                        if st.session_state.voice_enabled and model_text != "No text in response.":
+                            with st.spinner("Generating voice..."):
+                                voice_name = getattr(st.session_state, f"persona_{persona_num}_voice", "Zephyr")
+                                voice_style = getattr(st.session_state, f"persona_{persona_num}_voice_style", "")
+                                audio_data = generate_single_voice_audio(
+                                    client,
+                                    model_text,
+                                    voice_name,
+                                    voice_style
+                                )
+
                         if model_text != "No text in response.":
                             st.session_state.messages_display.append(
                                 {
                                     "role": persona_name,
                                     "text": model_text,
                                     "sources": sources,
+                                    "audio_data": audio_data
                                 }
                             )
                             st.session_state.last_actor = persona_name
@@ -191,6 +217,7 @@ def handle_persona_room_interaction(client):
                             p1_name,
                             "User",
                             st.session_state.last_message_text,
+                            1
                         )
                 elif st.session_state.last_actor == p2_name:
                     if st.button(
@@ -203,6 +230,7 @@ def handle_persona_room_interaction(client):
                             p1_name,
                             p2_name,
                             st.session_state.last_message_text,
+                            1
                         )
 
             with cols[1]:
@@ -217,6 +245,7 @@ def handle_persona_room_interaction(client):
                             p2_name,
                             "User",
                             st.session_state.last_message_text,
+                            2
                         )
                 elif st.session_state.last_actor == p1_name:
                     if st.button(
@@ -229,6 +258,7 @@ def handle_persona_room_interaction(client):
                             p2_name,
                             p1_name,
                             st.session_state.last_message_text,
+                            2
                         )
     else:
         st.warning(

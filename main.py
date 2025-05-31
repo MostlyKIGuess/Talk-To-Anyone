@@ -12,7 +12,8 @@ from src.ui import (
     render_persona_setup, 
     handle_chat_interaction,
     render_persona_room_setup, 
-    handle_persona_room_interaction
+    handle_persona_room_interaction,
+    render_voice_settings
 )
 
 st.title("Talk To Anyone 🗣️")
@@ -30,6 +31,9 @@ if error_message:
 st.session_state.developer_mode = st.sidebar.toggle(
     "Developer Mode", value=st.session_state.developer_mode
 )
+
+# Voice settings
+render_voice_settings()
 
 current_chat_mode_selection = st.sidebar.radio(
     "Select Chat Mode:",

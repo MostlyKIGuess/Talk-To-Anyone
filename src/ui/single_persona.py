@@ -2,7 +2,13 @@
 Single Persona Chat UI components for Talk-To-Anyone application.
 """
 import streamlit as st
-from ..models import generate_persona_description_from_name, initialize_chat_session, extract_sources_from_response
+from ..models import (
+    generate_persona_description_from_name, 
+    initialize_chat_session, 
+    extract_sources_from_response,
+    generate_single_voice_audio
+)
+from .voice_settings import render_persona_voice_config, create_audio_player
 
 def render_persona_setup(client):
     """
@@ -38,6 +44,9 @@ def render_persona_setup(client):
         if st.session_state.developer_mode:
             st.subheader("Generated Persona Description (System Prompt):")
             st.markdown(st.session_state.persona_1_description)
+
+        # Voice configuration
+        render_persona_voice_config(1, st.session_state.persona_1_name, st.session_state.persona_1_description)
 
         if st.button(
             f"👍 Yes, I want to talk to {st.session_state.persona_1_name}!",
@@ -104,11 +113,23 @@ def handle_chat_interaction(client):
                             if src.get('uri') and src['uri'] not in existing_uris:
                                 st.session_state.all_sources.append(src)
                                 existing_uris.add(src['uri'])
+                        
+                        # Generate voice audio if enabled
+                        audio_data = None
+                        if st.session_state.voice_enabled and model_response_text != "No text in response.":
+                            with st.spinner("Generating voice..."):
+                                audio_data = generate_single_voice_audio(
+                                    client,
+                                    model_response_text,
+                                    st.session_state.persona_1_voice,
+                                    st.session_state.persona_1_voice_style
+                                )
                                 
                         message = {
                             "role": st.session_state.persona_1_name,
                             "text": model_response_text,
                             "sources": sources,
+                            "audio_data": audio_data
                         }
                         st.session_state.messages_display.append(message)
                         st.rerun()

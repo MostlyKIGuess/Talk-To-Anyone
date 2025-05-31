@@ -2,6 +2,7 @@
 Common UI components for Talk-To-Anyone application.
 """
 import streamlit as st
+from .voice_settings import create_audio_player
 
 def render_chat_messages():
     """
@@ -10,6 +11,14 @@ def render_chat_messages():
     for msg in st.session_state.messages_display:
         with st.chat_message(msg["role"]):
             st.markdown(msg["text"])
+            
+            if "audio_data" in msg and msg["audio_data"]:
+                audio_html = create_audio_player(
+                    msg["audio_data"], 
+                    auto_play=st.session_state.auto_play_voice
+                )
+                st.markdown(audio_html, unsafe_allow_html=True)
+            
             if "sources" in msg and msg["sources"]:
                 with st.expander("Sources for this message"): 
                     for source in msg["sources"]:
