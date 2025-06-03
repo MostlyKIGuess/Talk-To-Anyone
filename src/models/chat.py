@@ -27,7 +27,11 @@ def initialize_chat_session(client, persona_description):
         )
         return chat_session
     except Exception as e:
-        st.error(f"Failed to initialize chat model: {e}")
+        error_msg = str(e)
+        if "503" in error_msg or "overloaded" in error_msg.lower() or "unavailable" in error_msg.lower():
+            st.error("Google servers are currently down or overloaded. Please try again later.")
+        else:
+            st.error(f"Failed to initialize chat model: {e}")
         return None
 
 
